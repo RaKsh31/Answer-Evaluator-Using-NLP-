@@ -1,0 +1,22 @@
+# NLP Answer Evaluation System — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# ── Web Framework ──────────────────────────────────────────────────────────
+flask>=3.0.0
+werkzeug>=3.0.0
+
+# ── File Extraction ────────────────────────────────────────────────────────
+pdfplumber>=0.10.0        # PDF text extraction
+pytesseract>=0.3.10       # Tesseract OCR wrapper (requires Tesseract installed)
+Pillow>=10.0.0            # Image processing
+python-docx>=1.1.0        # DOCX extraction
+pandas>=2.0.0             # Excel reading
+openpyxl>=3.1.0           # Excel read/write
+xlrd>=2.0.1               # XLS support (older Excel)
+
+# ── NLP ────────────────────────────────────────────────────────────────────
+nltk>=3.8.0               # Stopwords, stemming, tokenization
+
+# ── Semantic Similarity (optional but recommended) ─────────────────────────
+sentence-transformers>=2.6.0   # Sentence embeddings (all-MiniLM-L6-v2)
+torch>=2.0.0                   # Required by sentence-transformers
