@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Results Viewer · NLP Evaluator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#0d1117;--paper:#f8f5f0;--accent:#1a56db;--muted:#6b7280;
+    --border:#d1c9bc;--card:#fff;--success:#2f9e44;
+    --mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--paper);color:var(--ink);min-height:100vh}
+  header{background:var(--ink);color:#fff;padding:0 2rem;display:flex;align-items:center;
+    justify-content:space-between;height:64px;border-bottom:3px solid var(--accent)}
+  .logo{font-family:var(--mono);font-size:1rem;letter-spacing:0.08em;display:flex;align-items:center;gap:0.6rem}
+  .logo-dot{width:10px;height:10px;background:var(--accent);border-radius:50%}
+  nav a{color:rgba(255,255,255,0.6);text-decoration:none;font-size:0.875rem;margin-left:1.5rem;transition:color 0.2s}
+  nav a:hover,nav a.active{color:#fff}
+  .page{max-width:960px;margin:2.5rem auto;padding:0 1.5rem}
+  .page-title{font-size:1.4rem;font-weight:600;margin-bottom:1.5rem}
+  .subject-tabs{display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.5rem}
+  .tab-btn{padding:0.45rem 1rem;border:1px solid var(--border);border-radius:20px;
+    background:white;cursor:pointer;font-size:0.82rem;font-family:var(--mono);
+    transition:all 0.2s;white-space:nowrap}
+  .tab-btn:hover,.tab-btn.active{background:var(--accent);color:white;border-color:var(--accent)}
+  .table-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:0.85rem}
+  thead{background:var(--ink);color:white}
+  th{padding:0.75rem 1rem;text-align:center;font-family:var(--mono);font-size:0.72rem;
+    letter-spacing:0.08em;white-space:nowrap}
+  td{padding:0.65rem 1rem;text-align:center;border-bottom:1px solid var(--border)}
+  tr:nth-child(even) td{background:#f9f6f2}
+  tr:hover td{background:#eef4ff}
+  .pct-cell{font-family:var(--mono);font-weight:700}
+  .pct-high{color:var(--success)}
+  .pct-mid{color:#e67700}
+  .pct-low{color:#e03131}
+  .empty-state{padding:4rem;text-align:center;color:var(--muted);font-size:0.9rem}
+  .btn-dl{display:inline-flex;align-items:center;gap:0.4rem;padding:0.5rem 1.1rem;
+    background:var(--success);color:white;border:none;border-radius:6px;
+    font-family:var(--mono);font-size:0.75rem;cursor:pointer;text-decoration:none;margin-bottom:1.5rem}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-dot"></div>NLP_EVAL</div>
+  <nav>
+    <a href="/">Evaluate</a>
+    <a href="/results" class="active">Results</a>
+    <a href="/download">Download Excel</a>
+  </nav>
+</header>
+
+<div class="page">
+  <div class="page-title">Stored Results</div>
+
+  {% if subjects %}
+  <div class="subject-tabs" id="tabs">
+    {% for s in subjects %}
+    <button class="tab-btn" onclick="loadSubject('{{ s }}', this)">{{ s }}</button>
+    {% endfor %}
+  </div>
+  <a href="/download" class="btn-dl">⬇ Download Full Excel</a>
+  <div class="table-wrap">
+    <div id="table-container"><div class="empty-state">Select a subject above to view results.</div></div>
+  </div>
+  {% else %}
+  <div class="empty-state">No results yet. <a href="/">Run an evaluation</a> first.</div>
+  {% endif %}
+</div>
+
+<script>
+async function loadSubject(subject, btn) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+
+  const container = document.getElementById("table-container");
+  container.innerHTML = "<div class='empty-state'>Loading…</div>";
+
+  const resp = await fetch(`/results/${encodeURIComponent(subject)}`);
+  const data = await resp.json();
+
+  if (!data.rows.length) {
+    container.innerHTML = "<div class='empty-state'>No data for this subject yet.</div>";
+    return;
+  }
+
+  const thead = `<thead><tr>${data.columns.map(c=>`<th>${c}</th>`).join("")}</tr></thead>`;
+  const tbody = data.rows.map(row => {
+    const cells = data.columns.map(col => {
+      const val = row[col] || "";
+      if (col === "Percentage") {
+        const num = parseFloat(val);
+        const cls = num >= 70 ? "pct-high" : num >= 40 ? "pct-mid" : "pct-low";
+        return `<td class="pct-cell ${cls}">${val}</td>`;
+      }
+      return `<td>${val}</td>`;
+    });
+    return `<tr>${cells.join("")}</tr>`;
+  }).join("");
+
+  container.innerHTML = `<table>${thead}<tbody>${tbody}</tbody></table>`;
+}
+
+// Auto-load first subject if present
+const firstTab = document.querySelector(".tab-btn");
+if (firstTab) firstTab.click();
+</script>
+</body>
+</html>

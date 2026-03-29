@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NLP Answer Evaluator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:     #0d1117;
+    --paper:   #f8f5f0;
+    --accent:  #1a56db;
+    --accent2: #e03131;
+    --muted:   #6b7280;
+    --border:  #d1c9bc;
+    --card:    #ffffff;
+    --success: #2f9e44;
+    --warn:    #e67700;
+    --mono:    'Space Mono', monospace;
+    --sans:    'DM Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--ink);
+    color: #fff;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 3px solid var(--accent);
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .logo-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; }
+  nav a {
+    color: rgba(255,255,255,0.6);
+    text-decoration: none;
+    font-size: 0.875rem;
+    margin-left: 1.5rem;
+    transition: color 0.2s;
+  }
+  nav a:hover, nav a.active { color: #fff; }
+
+  /* ── Hero ── */
+  .hero {
+    max-width: 960px;
+    margin: 3rem auto 0;
+    padding: 0 1.5rem;
+  }
+  .hero-tag {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+  .hero h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero p {
+    margin-top: 0.75rem;
+    color: var(--muted);
+    max-width: 560px;
+    line-height: 1.65;
+  }
+
+  /* ── Layout ── */
+  .main-grid {
+    max-width: 960px;
+    margin: 2.5rem auto 4rem;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.75rem;
+  }
+  .card-title {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Form ── */
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .field { margin-bottom: 1.1rem; }
+  label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+    color: var(--ink);
+  }
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    background: #fafafa;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+    background: #fff;
+  }
+
+  /* ── Drop Zones ── */
+  .drop-area {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fafafa;
+    position: relative;
+  }
+  .drop-area:hover, .drop-area.dragover {
+    border-color: var(--accent);
+    background: rgba(26,86,219,0.04);
+  }
+  .drop-area input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 1.8rem; margin-bottom: 0.4rem; }
+  .drop-label { font-size: 0.85rem; color: var(--muted); }
+  .drop-label strong { color: var(--accent); }
+  .drop-formats { font-size: 0.72rem; color: var(--border); margin-top: 0.3rem; font-family: var(--mono); }
+  .file-chosen { font-size: 0.8rem; color: var(--success); margin-top: 0.4rem; font-weight: 500; }
+
+  /* ── Toggle ── */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--border);
+    margin-top: 0.5rem;
+  }
+  .toggle-info { font-size: 0.82rem; }
+  .toggle-info small { display: block; color: var(--muted); font-size: 0.75rem; }
+  .toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0;
+    background: var(--border);
+    border-radius: 24px;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+  .slider::before {
+    content: "";
+    position: absolute;
+    width: 18px; height: 18px;
+    left: 3px; top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.3s;
+  }
+  input:checked + .slider { background: var(--accent); }
+  input:checked + .slider::before { transform: translateX(20px); }
+
+  /* ── Submit Button ── */
+  .btn-evaluate {
+    width: 100%;
+    padding: 0.85rem;
+    margin-top: 1.25rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-evaluate:hover { background: #1648c0; }
+  .btn-evaluate:active { transform: scale(0.98); }
+  .btn-evaluate:disabled { background: var(--border); cursor: not-allowed; }
+
+  /* ── Sidebar ── */
+  .sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  /* ── How It Works ── */
+  .steps { list-style: none; }
+  .steps li {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: flex-start;
+  }
+  .step-num {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    width: 24px; height: 24px;
+    background: var(--ink);
+    color: white;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-text { font-size: 0.85rem; line-height: 1.5; color: var(--muted); }
+  .step-text strong { color: var(--ink); }
+
+  /* ── Loading Overlay ── */
+  #loading-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(13,17,23,0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  #loading-overlay.active { display: flex; }
+  .spinner {
+    width: 44px; height: 44px;
+    border: 3px solid rgba(255,255,255,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .spinner-label { color: white; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.1em; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Results Panel ── */
+  #results-panel {
+    display: none;
+    max-width: 960px;
+    margin: 0 auto 3rem;
+    padding: 0 1.5rem;
+    animation: slideIn 0.4s ease;
+  }
+  #results-panel.active { display: block; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+  .results-header h2 { font-size: 1.2rem; font-weight: 600; }
+  .btn-download {
+    padding: 0.5rem 1.1rem;
+    background: var(--success);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  /* ── Score Summary ── */
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .score-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .score-value {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .score-label { font-size: 0.78rem; color: var(--muted); margin-top: 0.25rem; }
+
+  /* ── Question Results ── */
+  .q-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .q-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .q-header:hover { background: #f9f9f9; }
+  .q-label { font-family: var(--mono); font-size: 0.85rem; font-weight: 700; }
+  .q-meta { display: flex; align-items: center; gap: 1rem; }
+  .q-marks { font-family: var(--mono); font-size: 0.9rem; }
+  .similarity-bar {
+    width: 80px; height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .similarity-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+  .chevron { transition: transform 0.2s; font-size: 0.8rem; color: var(--muted); }
+  .q-body {
+    display: none;
+    padding: 0 1.25rem 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .q-body.open { display: block; }
+  .answer-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+  .answer-box { background: #f8f5f0; border-radius: 6px; padding: 0.75rem 1rem; }
+  .answer-box-label { font-size: 0.7rem; font-family: var(--mono); color: var(--muted); text-transform: uppercase; margin-bottom: 0.4rem; }
+  .answer-box p { font-size: 0.85rem; line-height: 1.6; }
+  .feedback-row { margin-top: 1rem; font-size: 0.85rem; line-height: 1.55; color: var(--muted); }
+
+  /* ── Error Banner ── */
+  #error-banner {
+    display: none;
+    max-width: 960px;
+    margin: 1rem auto;
+    padding: 0 1.5rem;
+  }
+  #error-banner.active { display: block; }
+  .error-box {
+    background: #fff5f5;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    font-size: 0.875rem;
+    color: var(--accent2);
+  }
+
+  .sdrop-item {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.87rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .sdrop-item:hover { background: #eef4ff; color: var(--accent); }
+  .sdrop-hint {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+  #subject_input { position: relative; }
+  .field { position: relative; }
+
+  @media (max-width: 720px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .form-row  { grid-template-columns: 1fr; }
+    .score-grid { grid-template-columns: 1fr 1fr; }
+    .answer-cols { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Header ───────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    NLP_EVAL
+  </div>
+  <nav>
+    <a href="/" class="active">Evaluate</a>
+    <a href="/results">Results</a>
+    <a href="/download">Download Excel</a>
+  </nav>
+</header>
+
+<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+<div class="hero">
+  <!-- <div class="hero-tag">Evaluator · NLP</div> -->
+  <h1>Semantic & Similarity-Based<br><em>Answer Evaluation</em></h1>
+  <p>Upload answer keys and student responses in any format. The system automatically detects questions, matches them, and evaluates using NLP.</p>
+</div>
+
+<!-- ── Error Banner ──────────────────────────────────────────────────────── -->
+<div id="error-banner">
+  <div class="error-box" id="error-text"></div>
+</div>
+
+<!-- ── Main Grid ─────────────────────────────────────────────────────────── -->
+<div class="main-grid">
+
+  <!-- Left: Form -->
+  <div>
+    <div class="card">
+      <div class="card-title">Student Information</div>
+      <div class="form-row">
+        <div class="field">
+          <label>Student Name</label>
+          <input type="text" id="student_name" placeholder="e.g. Priya Ramesh">
+        </div>
+        <div class="field">
+          <label>Register Number</label>
+          <input type="text" id="reg_number" placeholder="e.g. 21CS001">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Subject</label>
+          <input type="text" id="subject_input" placeholder="Type or pick a subject…" autocomplete="off" oninput="filterSubjects(this.value)" onfocus="showDropdown()" onblur="hideDropdown()">
+          <div id="subject-dropdown" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.1);max-height:180px;overflow-y:auto;min-width:200px;">
+            {% for s in subjects %}
+            <div class="sdrop-item" data-val="{{ s }}" onmousedown="pickSubject('{{ s }}')">{{ s }}</div>
+            {% endfor %}
+            {% if not subjects %}
+            <div class="sdrop-hint">No subjects yet — just type a new one</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="field">
+          <label>Max Marks per Question</label>
+          <input type="number" id="max_marks" value="10" min="1" max="100">
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-title">Upload Files</div>
+      <div class="form-row" style="margin-bottom:1rem;">
+        <div>
+          <label style="margin-bottom:0.5rem;">Answer Key</label>
+          <div class="drop-area" id="drop-key">
+            <input type="file" id="answer_key" accept=".pdf,.png,.jpg,.jpeg,.docx,.txt,.xlsx,.xls" onchange="setFile('key',this)">
+            <div class="drop-icon">📄</div>
+            <div class="drop-label"><strong>Click or drag</strong> to upload</div>
+            <div class="drop-formats">PDF · DOCX · TXT · IMG · XLSX</div>
+            <div class="file-chosen" id="key-filename"></div>
+          </div>
+        </div>
+        <div>
+          <label style="margin-bottom:0.5rem;">Student Answer Sheet</label>
+          <div class="drop-area" id="drop-ans">
+            <input type="file" id="student_answer" accept=".pdf,.png,.jpg,.jpeg,.docx,.txt,.xlsx,.xls" onchange="setFile('ans',this)">
+            <div class="drop-icon">📝</div>
+            <div class="drop-label"><strong>Click or drag</strong> to upload</div>
+            <div class="drop-formats">PDF · DOCX · TXT · IMG · XLSX</div>
+            <div class="file-chosen" id="ans-filename"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <span>Use Semantic Similarity</span>
+          <small>Sentence Transformers (more accurate, slower)</small>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="use_semantic">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <button class="btn-evaluate" id="evaluate-btn" onclick="runEvaluation()">
+        ▶ RUN EVALUATION
+      </button>
+    </div>
+  </div>
+
+  <!-- Right: Sidebar -->
+  <div class="sidebar">
+    <div class="card">
+      <div class="card-title">How It Works</div>
+      <ul class="steps">
+        <li><div class="step-num">1</div><div class="step-text"><strong>Extract</strong> — Text is pulled from PDF, image (OCR), DOCX, TXT, or Excel.</div></li>
+        <li><div class="step-num">2</div><div class="step-text"><strong>Segment</strong> — Regex & NLP detect Q1, Q2, Part A/B, (a)/(b) patterns.</div></li>
+        <li><div class="step-num">3</div><div class="step-text"><strong>Match</strong> — Student answers are aligned to the answer key by label, then position.</div></li>
+        <li><div class="step-num">4</div><div class="step-text"><strong>Evaluate</strong> — TF-IDF cosine similarity (or Sentence Transformers) scores each answer.</div></li>
+        <li><div class="step-num">5</div><div class="step-text"><strong>Store</strong> — Marks saved to Excel with one sheet per subject.</div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Supported Formats</div>
+      <div style="font-family:var(--mono);font-size:0.78rem;line-height:2;">
+        📄 PDF (text + scanned)<br>
+        🖼️ PNG / JPG / JPEG<br>
+        📝 DOCX (Word)<br>
+        📃 TXT (plain text)<br>
+        📊 XLSX / XLS (Excel)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Results Panel ──────────────────────────────────────────────────────── -->
+<div id="results-panel">
+  <div class="results-header">
+    <h2>Evaluation Results</h2>
+    <a href="/download" class="btn-download">⬇ Download Excel</a>
+  </div>
+
+  <div class="score-grid">
+    <div class="score-card">
+      <div class="score-value" id="res-marks">—</div>
+      <div class="score-label">Marks Earned</div>
+    </div>
+    <div class="score-card">
+      <div class="score-value" id="res-total">—</div>
+      <div class="score-label">Total Marks</div>
+    </div>
+    <div class="score-card">
+      <div class="score-value" id="res-pct">—</div>
+      <div class="score-label">Percentage</div>
+    </div>
+  </div>
+
+  <div id="questions-container"></div>
+</div>
+
+<!-- ── Loading Overlay ────────────────────────────────────────────────────── -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="spinner-label">EVALUATING…</div>
+</div>
+
+<script>
+  // ── Subject autocomplete dropdown ────────────────────────────────────────
+  const ALL_SUBJECTS = {{ subjects | tojson }};
+
+  function filterSubjects(val) {
+    const dd = document.getElementById("subject-dropdown");
+    const items = dd.querySelectorAll(".sdrop-item");
+    let anyVisible = false;
+    items.forEach(item => {
+      const match = item.dataset.val.toLowerCase().includes(val.toLowerCase());
+      item.style.display = match ? "block" : "none";
+      if (match) anyVisible = true;
+    });
+    dd.style.display = "block";
+  }
+
+  function showDropdown() {
+    const dd = document.getElementById("subject-dropdown");
+    const items = dd.querySelectorAll(".sdrop-item");
+    items.forEach(item => item.style.display = "block");
+    if (dd.children.length > 0) dd.style.display = "block";
+  }
+
+  function hideDropdown() {
+    setTimeout(() => {
+      document.getElementById("subject-dropdown").style.display = "none";
+    }, 150);
+  }
+
+  function pickSubject(val) {
+    document.getElementById("subject_input").value = val;
+    document.getElementById("subject-dropdown").style.display = "none";
+  }
+
+  // ── File display ──────────────────────────────────────────────────────────
+  function setFile(type, input) {
+    const name = input.files[0] ? input.files[0].name : "";
+    document.getElementById(type === "key" ? "key-filename" : "ans-filename").textContent = name;
+  }
+
+  // ── Drag & Drop ───────────────────────────────────────────────────────────
+  ["drop-key", "drop-ans"].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("dragover"); });
+    el.addEventListener("dragleave", () => el.classList.remove("dragover"));
+    el.addEventListener("drop", e => {
+      e.preventDefault(); el.classList.remove("dragover");
+      const input = el.querySelector("input[type=file]");
+      input.files = e.dataTransfer.files;
+      input.dispatchEvent(new Event("change"));
+    });
+  });
+
+  // ── Main evaluation call ──────────────────────────────────────────────────
+  async function runEvaluation() {
+    // Hide previous results/errors
+    document.getElementById("results-panel").classList.remove("active");
+    document.getElementById("error-banner").classList.remove("active");
+
+    // Validate files
+    const keyFile = document.getElementById("answer_key").files[0];
+    const ansFile = document.getElementById("student_answer").files[0];
+    if (!keyFile || !ansFile) { showError("Please upload both files."); return; }
+
+    // Resolve subject — just read the text input directly
+    const subject = document.getElementById("subject_input").value.trim();
+    if (!subject) { showError("Please enter or select a subject name."); return; }
+
+    // Build form data
+    const fd = new FormData();
+    fd.append("answer_key",    keyFile);
+    fd.append("student_answer", ansFile);
+    fd.append("student_name", document.getElementById("student_name").value);
+    fd.append("reg_number",   document.getElementById("reg_number").value);
+    fd.append("subject",      subject);
+    fd.append("max_marks",    document.getElementById("max_marks").value);
+    fd.append("use_semantic", document.getElementById("use_semantic").checked);
+
+    // Show loading
+    document.getElementById("loading-overlay").classList.add("active");
+    document.getElementById("evaluate-btn").disabled = true;
+
+    try {
+      const resp = await fetch("/evaluate", { method: "POST", body: fd });
+      const data = await resp.json();
+
+      if (!data.success) {
+        showError(data.errors.join(" "));
+        return;
+      }
+
+      renderResults(data.results);
+
+    } catch(e) {
+      showError("Network error. Is the Flask server running?");
+    } finally {
+      document.getElementById("loading-overlay").classList.remove("active");
+      document.getElementById("evaluate-btn").disabled = false;
+    }
+  }
+
+  // ── Render results ────────────────────────────────────────────────────────
+  function renderResults(results) {
+    document.getElementById("res-marks").textContent = results.total_marks;
+    document.getElementById("res-total").textContent = results.max_total;
+    document.getElementById("res-pct").textContent   = results.percentage + "%";
+
+    const container = document.getElementById("questions-container");
+    container.innerHTML = "";
+
+    results.questions.forEach((q, idx) => {
+      const pct = Math.round(q.similarity * 100);
+      const barColor = pct >= 70 ? "#2f9e44" : pct >= 40 ? "#e67700" : "#e03131";
+      const marksColor = pct >= 70 ? "#2f9e44" : pct >= 40 ? "#e67700" : "#e03131";
+
+      const card = document.createElement("div");
+      card.className = "q-card";
+      card.innerHTML = `
+        <div class="q-header" onclick="toggleQ(${idx})">
+          <div class="q-label">${q.label}</div>
+          <div class="q-meta">
+            <div class="similarity-bar">
+              <div class="similarity-fill" style="width:${pct}%;background:${barColor}"></div>
+            </div>
+            <div class="q-marks" style="color:${marksColor}">${q.marks} / ${q.max_marks}</div>
+            <div class="chevron" id="chev-${idx}">▼</div>
+          </div>
+        </div>
+        <div class="q-body" id="qbody-${idx}">
+          <div class="feedback-row">${q.feedback}</div>
+          <div class="answer-cols">
+            <div class="answer-box">
+              <div class="answer-box-label">Answer Key</div>
+              <p>${q.key_answer || "<em>—</em>"}</p>
+            </div>
+            <div class="answer-box">
+              <div class="answer-box-label">Student Answer</div>
+              <p>${q.student_answer || "<em>Not provided</em>"}</p>
+            </div>
+          </div>
+          <div style="margin-top:0.75rem;font-size:0.75rem;font-family:var(--mono);color:var(--muted)">
+            Similarity score: ${(q.similarity * 100).toFixed(1)}%
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    document.getElementById("results-panel").classList.add("active");
+    document.getElementById("results-panel").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function toggleQ(idx) {
+    const body = document.getElementById(`qbody-${idx}`);
+    const chev = document.getElementById(`chev-${idx}`);
+    body.classList.toggle("open");
+    chev.textContent = body.classList.contains("open") ? "▲" : "▼";
+  }
+
+  function showError(msg) {
+    const banner = document.getElementById("error-banner");
+    document.getElementById("error-text").textContent = msg;
+    banner.classList.add("active");
+    banner.scrollIntoView({ behavior: "smooth" });
+  }
+</script>
+</body>
+</html>
